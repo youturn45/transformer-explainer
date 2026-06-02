@@ -212,11 +212,11 @@
 				{/if}
 				{#if $isMobile}
 					<span class="helper-text"
-						>Try the examples. Please use a desktop computer to input GPT-2 prompts directly.</span
+						>Try the examples. Please use a desktop computer to input prompts directly.</span
 					>
 				{:else if $isLoaded && $isFetchingModel}
 					<span class="helper-text"
-						>Try the examples while GPT-2 model is being downloaded (600MB)</span
+						>Try the examples while the model is being downloaded (~400MB)</span
 					>
 				{:else if exceedLimit}
 					<span class="helper-text">You can enter up to {wordLimit} words.</span>

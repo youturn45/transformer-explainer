@@ -124,16 +124,16 @@
 				and <code>"visualization"</code> correspond to unique tokens, while the word
 				<code>"empowers"</code>
 				is split into two tokens. The full vocabulary of tokens is decided before training the model:
-				GPT-2's vocabulary has <code>50,257</code> unique tokens. Now that we split our input text into
+				GPT-2 Chinese's vocabulary has <code>21,128</code> unique tokens. Now that we split our input text into
 				tokens with distinct IDs, we can obtain their vector representation from embeddings.
 			</p>
 		</div>
 		<div class="article-subsection" id="article-token-embedding">
 			<h3>Step 2. Token Embedding</h3>
 			<p>
-				GPT-2 (small) represents each token in the vocabulary as a 768-dimensional vector; the
+				GPT-2 Chinese represents each token in the vocabulary as a 768-dimensional vector; the
 				dimension of the vector depends on the model. These embedding vectors are stored in a matrix
-				of shape <code>(50,257, 768)</code>, containing approximately 39 million parameters! This
+				of shape <code>(21,128, 768)</code>, containing approximately 39 million parameters! This
 				extensive matrix allows the model to assign semantic meaning to each token, in the sense
 				that tokens with similar usage or meaning in language are placed close together in this
 				high-dimensional space, while dissimilar tokens are farther apart.
@@ -208,7 +208,7 @@
 			such blocks that are stacked sequentially one after the other. The token representations
 			evolve through layers, from the first block to the last one, allowing the model to build up an
 			intricate understanding of each token. This layered approach leads to higher-order
-			representations of the input. The GPT-2 (small) model we are examining consists of <code
+			representations of the input. The GPT-2 Chinese model we are examining consists of <code
 				>12</code
 			> such blocks.
 		</p>
@@ -280,7 +280,7 @@
 			<p>
 				<span class="q-color">Query</span>, <span class="k-color">key</span>, and
 				<span class="v-color">Value</span>
-				vectors are split into multiple heads—in GPT-2 (small)'s case, into
+				vectors are split into multiple heads—in GPT-2 Chinese's case, into
 				<code>12</code> heads. Each head processes a segment of the embeddings independently, capturing
 				different syntactic and semantic relationships. This design facilitates parallel learning of
 				diverse linguistic features, enhancing the model's representational power.
@@ -330,7 +330,7 @@
 				The model uses the masked self-attention scores and multiplies them with the
 				<span class="v-color">Value</span> matrix to get the
 				<span class="purple-color">final output</span>
-				of the self-attention mechanism. GPT-2 has <code>12</code> self-attention heads, each capturing
+				of the self-attention mechanism. GPT-2 Chinese has <code>12</code> self-attention heads, each capturing
 				different relationships between tokens. The outputs of these heads are concatenated and passed
 				through a linear projection.
 			</p>
@@ -384,7 +384,7 @@
 		<p>
 			After the input has been processed through all Transformer blocks, the output is passed
 			through the final linear layer to prepare it for token prediction. This layer projects the
-			final representations into a <code>50,257</code>
+			final representations into a <code>21,128</code>
 			dimensional space, where every token in the vocabulary has a corresponding value called
 			<code>logit</code>. Any token can be the next word, so this process allows us to simply rank
 			these tokens by their likelihood of being that next word. We then apply the softmax function
@@ -549,7 +549,7 @@
 	<div class="article-section" data-click="article-implementation">
 		<h2>How is Transformer Explainer Implemented?</h2>
 		<p>
-			Transformer Explainer features a live GPT-2 (small) model running directly in the browser.
+			Transformer Explainer features a live GPT-2 Chinese model running directly in the browser.
 			This model is derived from the PyTorch implementation of GPT by Andrej Karpathy's
 			<a href="https://github.com/karpathy/nanoGPT" title="Github" target="_blank"
 				>nanoGPT project</a
