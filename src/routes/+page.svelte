@@ -34,12 +34,11 @@
 	import { base } from '$app/paths';
 	import * as ort from 'onnxruntime-web';
 
-	import { adjustTemperature, runModel, fakeRunWithCachedData } from '~/utils/data';
+	import { adjustTemperature, runModel } from '~/utils/data';
 	import { fetchAndMergeChunks } from '~/utils/fetchChunks';
 	import WeightPopovers from '~/components/WeightPopovers.svelte';
 	import { fade } from 'svelte/transition';
 	import { AutoTokenizer } from '@xenova/transformers';
-	import { ex0, ex1, ex2, ex3, ex4 } from '~/constants/examples';
 	import BlockTransition from '~/components/BlockTransition.svelte';
 	import QKV from '~/components/QKV.svelte';
 	import Textbook from '~/components/textbook/Textbook.svelte';
@@ -52,7 +51,7 @@
 
 	// fetch model
 	onMount(async () => {
-		const gpt2Tokenizer = await AutoTokenizer.from_pretrained('Xenova/gpt2');
+		const gpt2Tokenizer = await AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall');
 		active = true;
 
 		const unsubscribe = subscribeInputs(gpt2Tokenizer);
@@ -66,10 +65,10 @@
 
 	// Fetch model onnx
 	const fetchModel = async () => {
-		const chunkNum = 63; //TODO: move to model meta
+		const chunkNum = 46;
 		const chunkUrls = Array(chunkNum)
 			.fill(0)
-			.map((d, i) => `${base}/model-v2/gpt2.onnx.part${i}`);
+			.map((d, i) => `${base}/model-v2/gpt2-chinese.onnx.part${i}`);
 
 		// Fetch from cache
 		const { hasCache, mergedArray } = await fetchAndMergeChunks(chunkUrls);
@@ -99,21 +98,11 @@
 	};
 
 	// Subscribe inputs
-	const cachedDataMap = [ex0, ex1, ex2, ex3, ex4];
 	const subscribeInputs = (tokenizer: PreTrainedTokenizer) => {
 		const runModelOrCache = () => {
 			if ($isFetchingModel || !$modelSession) {
-				const cachedData = cachedDataMap[$selectedExampleIdx];
-
-				fakeRunWithCachedData({
-					cachedData,
-					tokenizer,
-					temperature: $temperature,
-					sampling: $sampling
-				});
 				return;
 			}
-			// run model when input has changed
 			runModel({
 				tokenizer,
 				input: $inputText.trim(),
@@ -132,6 +121,7 @@
 				initialTemperature = false;
 				return;
 			}
+			if (!$modelData) return;
 			adjustTemperature({
 				tokenizer,
 				logits: $modelData.logits,
@@ -146,6 +136,7 @@
 				initialSampling = false;
 				return;
 			}
+			if (!$modelData) return;
 			adjustTemperature({
 				tokenizer,
 				logits: $modelData.logits,
