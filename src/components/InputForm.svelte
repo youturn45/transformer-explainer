@@ -97,6 +97,7 @@
 	// Example select box
 	let dropdownOpen = false;
 	const onSelectExample = (d, i) => {
+		console.log('[example click] index:', i, 'text:', d);
 		if ($isFetchingModel) {
 			textPages.find((page) => page.id === 'how-transformers-work')?.complete();
 		}

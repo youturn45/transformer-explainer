@@ -127,7 +127,13 @@
 		};
 
 		const unsubscribeInputText = inputText.subscribe((value) => {
-			runModelOrCache();
+			if ($isFetchingModel || !$modelSession) return;
+			runModel({
+				tokenizer,
+				input: value.trim(),
+				temperature: $temperature,
+				sampling: $sampling
+			});
 		});
 
 		let initialTemperature = true; // prevent initial redundant rendering
