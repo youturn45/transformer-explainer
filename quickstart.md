@@ -70,7 +70,7 @@ python src/utils/model/chunk.py
 
 This produces 46 files at `static/model-v2/gpt2-chinese.onnx.partN`.
 
-> The chunks are already committed to this repo, so you only need to re-run this if you re-export the model.
+> The `static/model-v2/` folder is gitignored — you must run this step on every fresh clone.
 
 ---
 

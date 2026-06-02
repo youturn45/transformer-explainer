@@ -15,9 +15,8 @@ yarn.lock
 __pycache__
 .venv
 
-# Generated ONNX model (too large for git — regenerate via export_to_onnx.py)
+# Generated ONNX model and chunks — regenerate locally via export_to_onnx.py + chunk.py
 src/utils/model/params_output/
-
-# Raw ONNX chunks are committed to static/model-v2/ intentionally — do not ignore
+static/model-v2/
 
 static/consent-form.pdf
