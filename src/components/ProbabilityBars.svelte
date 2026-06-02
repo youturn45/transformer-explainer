@@ -109,7 +109,7 @@
 
 	// Initial draw without transition
 	onMount(() => {
-		drawBars();
+		if ($modelData) drawBars();
 	});
 
 	$: if ($modelData && svgEl) {
