@@ -134,6 +134,7 @@ torch.onnx.export(
     export_params=True,
     opset_version=11,
     do_constant_folding=True,
+    dynamo=False,
     input_names=["input"],
     output_names=output_names,
     dynamic_axes={
