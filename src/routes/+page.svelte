@@ -51,22 +51,27 @@
 
 	// fetch model
 	onMount(async () => {
-		const gpt2Tokenizer = await AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall');
-		active = true;
+		try {
+			const gpt2Tokenizer = await AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall');
+			active = true;
 
-		const unsubscribe = subscribeInputs(gpt2Tokenizer);
+			const unsubscribe = subscribeInputs(gpt2Tokenizer);
 
-		if (!$isMobile) {
-			await fetchModel();
-			runModel({
-				tokenizer: gpt2Tokenizer,
-				input: $inputText.trim(),
-				temperature: $temperature,
-				sampling: $sampling
-			});
+			if (!$isMobile) {
+				await fetchModel();
+				await runModel({
+					tokenizer: gpt2Tokenizer,
+					input: $inputText.trim(),
+					temperature: $temperature,
+					sampling: $sampling
+				});
+			}
+
+			return unsubscribe;
+		} catch (e) {
+			console.error('[onMount] failed:', e);
+			isFetchingModel.set(false);
 		}
-
-		return unsubscribe;
 	});
 
 	// Fetch model onnx
