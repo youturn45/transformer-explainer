@@ -38,13 +38,17 @@
 	import { fetchAndMergeChunks } from '~/utils/fetchChunks';
 	import WeightPopovers from '~/components/WeightPopovers.svelte';
 	import { fade } from 'svelte/transition';
-	import { AutoTokenizer } from '@xenova/transformers';
+	import { AutoTokenizer, env as xenovaEnv } from '@xenova/transformers';
 	import BlockTransition from '~/components/BlockTransition.svelte';
 	import QKV from '~/components/QKV.svelte';
 	import Textbook from '~/components/textbook/Textbook.svelte';
 
 	ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/';
 	ort.env.logLevel = 'error';
+
+	// Serve tokenizer from local static files — avoids HuggingFace CDN dependency
+	xenovaEnv.localModelPath = `${base}/tokenizer/`;
+	xenovaEnv.allowRemoteModels = false;
 
 	let active = false;
 	let appStartTime = Date.now();
