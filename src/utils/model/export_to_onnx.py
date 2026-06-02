@@ -4,7 +4,8 @@ import os
 # from onnxruntime.transformers import optimizer, float16
 # import onnx
 
-modelname="gpt2"
+modelname = "uer/gpt2-chinese-cluecorpussmall"
+filename = "gpt2-chinese"
 
 def create_folder_if_not_exists(folder_path):
     if not os.path.exists(folder_path):
@@ -110,11 +111,11 @@ wrapped_model = wrapper(model)
 # optimized_model.save_model_to_file("gpt2_fp16.onnx")
 
 # create dummy input
-dummy_input = torch.tensor([[6601, 32704, 795, 30132, 2985, 284]])
+dummy_input = torch.tensor([[1435, 1184, 3209, 3362, 2769, 1526]])
 # dummy_input = torch.randint(0, 50257, (1, 1), dtype=torch.long)
 
 # export model to ONNX
-onnx_model_path = "src/utils/model/params_output/"+ modelname +".onnx"
+onnx_model_path = "src/utils/model/params_output/" + filename + ".onnx"
 
 # generate output names dynamically
 output_names = [

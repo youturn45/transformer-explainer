@@ -1,7 +1,7 @@
 import os
 
 # modelname="gpt2"
-modelname="gpt2"
+modelname="gpt2-chinese"
 
 # file_path = "src/utils/model/params_output/"+modelname+'-quant.onnx'
 # chunk_path='static/'+modelname+'-quant.onnx'
