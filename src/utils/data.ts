@@ -114,7 +114,7 @@ export const adjustTemperature = async ({
 };
 
 export const getTokenization = async (tokenizer: PreTrainedTokenizer, input: string) => {
-	const token_ids = tokenizer.encode(input);
+	const token_ids = tokenizer.encode(input, null, { add_special_tokens: false });
 	const input_tokens = token_ids.map((id) => tokenizer.decode([id])).flat();
 
 	return {
@@ -334,10 +334,10 @@ function randomChoice(items: Probabilities): Probability {
 	return items[items.length - 1];
 }
 
-const attentionTensors = Array(modelMetaMap.gpt2.layer_num)
+const attentionTensors = Array(modelMetaMap['gpt2-chinese'].layer_num)
 	.fill(0)
 	.flatMap((_, i) => {
-		return Array(modelMetaMap.gpt2.attention_head_num)
+		return Array(modelMetaMap['gpt2-chinese'].attention_head_num)
 			.fill(0)
 			.flatMap((_, j) => [
 				`block_${i}_attn_head_${j}_attn`,
