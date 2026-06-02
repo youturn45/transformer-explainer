@@ -58,6 +58,12 @@
 
 		if (!$isMobile) {
 			await fetchModel();
+			runModel({
+				tokenizer: gpt2Tokenizer,
+				input: $inputText.trim(),
+				temperature: $temperature,
+				sampling: $sampling
+			});
 		}
 
 		return unsubscribe;
