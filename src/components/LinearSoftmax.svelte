@@ -171,7 +171,7 @@
 	// top-p
 	$: topPProbabilities = data?.map((d) => d.topPProbability) || [];
 	$: cumulativeProbabilities = data?.map((d) => d.cumulativeProbability) || [];
-	$: cutoffIndex = data?.[0].cutoffIndex;
+	$: cutoffIndex = data?.[0]?.cutoffIndex;
 
 	let isHovered = false;
 
