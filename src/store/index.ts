@@ -2,7 +2,6 @@ import { writable, derived, readable } from 'svelte/store';
 import * as ort from 'onnxruntime-web';
 import tailwindConfig from '../../tailwind.config';
 import resolveConfig from 'tailwindcss/resolveConfig';
-import { ex0 } from '~/constants/examples';
 import { textPages } from '~/utils/textbookPages';
 
 const { theme } = resolveConfig(tailwindConfig);
@@ -28,11 +27,12 @@ export const isFetchingModel = writable(true);
 export const isLoaded = writable(false);
 
 export const inputTextExample = [
-	'Data visualization empowers users to',
-	'Artificial Intelligence is transforming the',
-	'As the spaceship was approaching the',
-	'On the deserted planet they discovered a',
-	'IEEE VIS conference highlights the'
+	'床前明月光，疑是',
+	'春眠不觉晓，处处',
+	'世上本没有路，走的人多了，也便',
+	'横眉冷对千夫指，俯首甘为',
+	'臣妾很想知足，可臣妾',
+	'黑夜给了我黑色的眼睛，我却用它',
 ];
 
 const initialExIdx = 0;
@@ -41,15 +41,13 @@ export const selectedExampleIdx = writable<number>(initialExIdx);
 export const modelSession = writable<ort.InferenceSession>();
 
 // transformer model output
-export const modelData = writable<ModelData>(ex0);
+export const modelData = writable<ModelData | null>(null);
 export const predictedToken = writable<Probability>();
-export const tokens = writable<string[]>(ex0?.tokens);
-export const tokenIds = writable<number[]>(ex0?.tokenIds);
+export const tokens = writable<string[]>([]);
+export const tokenIds = writable<number[]>([]);
 
 export const modelMetaMap: Record<string, ModelMetaData> = {
-	gpt2: { layer_num: 12, attention_head_num: 12, dimension: 768, chunkTotal: 63 },
-	'gpt2-medium': { layer_num: 24, attention_head_num: 16, dimension: 1024 },
-	'gpt2-large': { layer_num: 36, attention_head_num: 20, dimension: 1280 }
+	'gpt2-chinese': { layer_num: 12, attention_head_num: 12, dimension: 768, chunkTotal: 46 }
 };
 
 // selected token vector
@@ -74,7 +72,7 @@ export const inputText = writable(inputTextExample[initialExIdx]);
 // export const tokens = derived(inputText, ($inputText) => $inputText.trim().split(' '));
 
 // selected model and meta data
-const initialSelectedModel = 'gpt2';
+const initialSelectedModel = 'gpt2-chinese';
 export const selectedModel = writable(initialSelectedModel);
 export const modelMeta = derived(selectedModel, ($selectedModel) => modelMetaMap[$selectedModel]);
 
