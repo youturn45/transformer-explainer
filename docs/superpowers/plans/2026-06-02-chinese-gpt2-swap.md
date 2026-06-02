@@ -6,7 +6,7 @@
 
 **Architecture:** The existing pipeline structure is unchanged — only the model identity changes at each layer. `model.py`'s `from_pretrained` is patched to accept any HF GPT-2-compatible model by reading config dynamically. The frontend tokenizer swaps from `Xenova/gpt2` (BPE, English) to `uer/gpt2-chinese-cluecorpussmall` (BertTokenizer, Chinese). Stale English cached example data is removed entirely.
 
-**Tech Stack:** Python + PyTorch + HuggingFace Transformers (export pipeline), SvelteKit + TypeScript + @xenova/transformers + onnxruntime-web (frontend).
+**Tech Stack:** Python + PyTorch + HuggingFace Transformers (export pipeline), SvelteKit + TypeScript + @xenova/transformers v2.17.x + onnxruntime-web (frontend).
 
 ---
 
@@ -19,9 +19,11 @@
 | `src/utils/model/chunk.py` | Update model name to `gpt2-chinese` |
 | `src/utils/data.ts` | Fix `modelMetaMap.gpt2` hard-coded refs; add `add_special_tokens: false` |
 | `src/store/index.ts` | New model meta entry, updated initial model/text/prompts, remove ex0 usage |
-| `src/routes/+page.svelte` | New tokenizer, remove stale cache fallback, update chunk URLs |
+| `src/routes/+page.svelte` | New tokenizer, null guards, remove stale cache fallback, update chunk URLs |
 | `src/utils/textbookPages.ts` | Update vocab count and model name strings |
 | `src/components/InputForm.svelte` | Update GPT-2 prompt text |
+| `src/components/article/Article.svelte` | Update vocab counts and model name references |
+| `src/components/Popovers/LogitWeightPopover.svelte` | Update hard-coded 50,257 dimension labels |
 
 ---
 
@@ -187,7 +189,7 @@ git commit -m "feat: update export and chunk scripts for Chinese GPT-2"
 
 ## Task 3: Run the Python export pipeline
 
-> This task produces the ONNX artifact that the frontend loads. It requires Python with `torch`, `transformers`, and `onnx` installed. The model download from HuggingFace is ~500MB.
+> This task produces the ONNX artifact that the frontend loads. It requires Python with `torch`, `transformers`, and `onnx` installed. The model download from HuggingFace is ~400MB. **Run all commands from the repo root.**
 
 **Files:**
 - Produces: `src/utils/model/params_output/gpt2-chinese.onnx`
@@ -195,9 +197,10 @@ git commit -m "feat: update export and chunk scripts for Chinese GPT-2"
 
 - [ ] **Step 1: Export the model to ONNX**
 
+Run from the repo root (scripts use repo-root-relative paths):
+
 ```bash
-cd src/utils/model
-python export_to_onnx.py
+python src/utils/model/export_to_onnx.py
 ```
 
 Expected output:
@@ -212,7 +215,7 @@ The file `src/utils/model/params_output/gpt2-chinese.onnx` should now exist.
 - [ ] **Step 2: Split into chunks**
 
 ```bash
-python chunk.py
+python src/utils/model/chunk.py
 ```
 
 Expected: files `static/model-v2/gpt2-chinese.onnx.part0` through `static/model-v2/gpt2-chinese.onnx.partN` are created.
@@ -223,7 +226,7 @@ Expected: files `static/model-v2/gpt2-chinese.onnx.part0` through `static/model-
 ls static/model-v2/gpt2-chinese.onnx.part* | wc -l
 ```
 
-Note this number — you will use it as `chunkTotal` in Task 4.
+Note this number — you will use it as `chunkTotal` in Task 5 and as `chunkNum` in Task 6.
 
 - [ ] **Step 4: Remove old English model chunks**
 
@@ -267,6 +270,8 @@ const attentionTensors = Array(modelMetaMap['gpt2-chinese'].layer_num)
 
 - [ ] **Step 2: Add `add_special_tokens: false` to tokenizer encode**
 
+> Note on API: @xenova/transformers v2.x `encode` signature is `encode(text, text_pair, options)` mirroring the Python Transformers API. `null` is passed as `text_pair` since we are encoding a single string. If type-check fails on this call, verify the installed typings — the alternative form is `tokenizer(input, { add_special_tokens: false }).input_ids`.
+
 In `src/utils/data.ts` at the `getTokenization` function (~line 116), replace:
 
 ```typescript
@@ -289,7 +294,10 @@ export const getTokenization = async (tokenizer: PreTrainedTokenizer, input: str
 npm run check
 ```
 
-Expected: no errors.
+Expected: no errors. If the `encode` call produces a type error, replace it with:
+```typescript
+const token_ids = (await tokenizer(input, { add_special_tokens: false })).input_ids.tolist()[0] as number[];
+```
 
 - [ ] **Step 4: Commit**
 
@@ -428,7 +436,7 @@ With:
 const gpt2Tokenizer = await AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall');
 ```
 
-- [ ] **Step 2: Remove stale cached data imports and fallback**
+- [ ] **Step 2: Remove stale cached data imports**
 
 Remove this import line:
 
@@ -436,13 +444,13 @@ Remove this import line:
 import { ex0, ex1, ex2, ex3, ex4 } from '~/constants/examples';
 ```
 
-Remove this import from `~/utils/data`:
+Change this import from `~/utils/data`:
 
 ```typescript
 import { adjustTemperature, runModel, fakeRunWithCachedData } from '~/utils/data';
 ```
 
-Replace with:
+To:
 
 ```typescript
 import { adjustTemperature, runModel } from '~/utils/data';
@@ -496,7 +504,85 @@ const subscribeInputs = (tokenizer: PreTrainedTokenizer) => {
     };
 ```
 
-- [ ] **Step 4: Update chunk filename and count**
+- [ ] **Step 4: Add null guards to temperature and sampling subscribers**
+
+`$modelData` is now initialized to `null` and only set after inference runs. The temperature and sampling subscribers must not call `adjustTemperature` before that.
+
+Find the temperature subscriber (immediately after `subscribeInputs`):
+
+```typescript
+let initialTemperature = true; // prevent initial redundant rendering
+const unsubscribeTemperature = temperature.subscribe((value) => {
+    if (initialTemperature) {
+        initialTemperature = false;
+        return;
+    }
+    adjustTemperature({
+        tokenizer,
+        logits: $modelData.logits,
+        temperature: value,
+        sampling: $sampling
+    });
+});
+```
+
+Replace with:
+
+```typescript
+let initialTemperature = true; // prevent initial redundant rendering
+const unsubscribeTemperature = temperature.subscribe((value) => {
+    if (initialTemperature) {
+        initialTemperature = false;
+        return;
+    }
+    if (!$modelData) return;
+    adjustTemperature({
+        tokenizer,
+        logits: $modelData.logits,
+        temperature: value,
+        sampling: $sampling
+    });
+});
+```
+
+Find the sampling subscriber:
+
+```typescript
+let initialSampling = true; // prevent initial redundant rendering
+const unsubscribeSmapling = sampling.subscribe((value) => {
+    if (initialSampling) {
+        initialSampling = false;
+        return;
+    }
+    adjustTemperature({
+        tokenizer,
+        logits: $modelData.logits,
+        temperature: $temperature,
+        sampling: value
+    });
+});
+```
+
+Replace with:
+
+```typescript
+let initialSampling = true; // prevent initial redundant rendering
+const unsubscribeSmapling = sampling.subscribe((value) => {
+    if (initialSampling) {
+        initialSampling = false;
+        return;
+    }
+    if (!$modelData) return;
+    adjustTemperature({
+        tokenizer,
+        logits: $modelData.logits,
+        temperature: $temperature,
+        sampling: value
+    });
+});
+```
+
+- [ ] **Step 5: Update chunk filename and count**
 
 Replace (using the chunk count `<N>` from Task 3 Step 3):
 
@@ -516,7 +602,7 @@ const chunkUrls = Array(chunkNum)
     .map((d, i) => `${base}/model-v2/gpt2-chinese.onnx.part${i}`);
 ```
 
-- [ ] **Step 5: Run type check**
+- [ ] **Step 6: Run type check**
 
 ```bash
 npm run check
@@ -524,11 +610,11 @@ npm run check
 
 Expected: no errors.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/routes/+page.svelte
-git commit -m "feat: update page.svelte for Chinese tokenizer, chunk URLs, remove English cache fallback"
+git commit -m "feat: update page.svelte for Chinese tokenizer, chunk URLs, null guards, remove cache fallback"
 ```
 
 ---
@@ -538,8 +624,26 @@ git commit -m "feat: update page.svelte for Chinese tokenizer, chunk URLs, remov
 **Files:**
 - Modify: `src/utils/textbookPages.ts`
 - Modify: `src/components/InputForm.svelte`
+- Modify: `src/components/article/Article.svelte`
+- Modify: `src/components/Popovers/LogitWeightPopover.svelte`
 
-- [ ] **Step 1: Update `textbookPages.ts` line 128**
+### `textbookPages.ts`
+
+- [ ] **Step 1: Line 39 — update model description**
+
+Replace:
+
+```
+Here we use GPT-2 (small), simpler than newer ones but perfect for learning the fundamentals.
+```
+
+With:
+
+```
+Here we use GPT-2 Chinese (small), simpler than newer ones but perfect for learning the fundamentals.
+```
+
+- [ ] **Step 2: Line 128 — update vocab size**
 
 Replace:
 
@@ -553,7 +657,21 @@ With:
 GPT-2 Chinese has 21,128 token vocabulary, each with a unique ID.
 ```
 
-- [ ] **Step 2: Update `textbookPages.ts` line 288**
+- [ ] **Step 3: Line 190 — update model name**
+
+Replace:
+
+```
+GPT-2 (small) has 12 of them.
+```
+
+With:
+
+```
+GPT-2 Chinese has 12 of them.
+```
+
+- [ ] **Step 4: Line 288 — update head count label**
 
 Replace:
 
@@ -567,7 +685,21 @@ With:
 the model splits them into several <strong>heads</strong> (12 in GPT-2 Chinese).
 ```
 
-- [ ] **Step 3: Update `textbookPages.ts` line 380**
+- [ ] **Step 5: Line 336 — update head count label**
+
+Replace:
+
+```
+GPT-2 (small) has 12 such outputs
+```
+
+With:
+
+```
+GPT-2 Chinese has 12 such outputs
+```
+
+- [ ] **Step 6: Line 380 — update logit count**
 
 Replace:
 
@@ -581,9 +713,11 @@ With:
 This produces <strong>logits</strong>, 21,128 numbers—one for each token in the vocabulary—that indicate how likely each token is to come next.
 ```
 
-- [ ] **Step 4: Update `InputForm.svelte` prompt text**
+### `InputForm.svelte`
 
-In `src/components/InputForm.svelte` around line 215, replace:
+- [ ] **Step 7: Update prompt copy (~line 215)**
+
+Replace:
 
 ```
 Try the examples. Please use a desktop computer to input GPT-2 prompts directly.
@@ -595,7 +729,7 @@ With:
 Try the examples. Please use a desktop computer to input prompts directly.
 ```
 
-And replace:
+Replace:
 
 ```
 Try the examples while GPT-2 model is being downloaded (600MB)
@@ -604,10 +738,60 @@ Try the examples while GPT-2 model is being downloaded (600MB)
 With:
 
 ```
-Try the examples while the model is being downloaded (~600MB)
+Try the examples while the model is being downloaded (~400MB)
 ```
 
-- [ ] **Step 5: Run type check**
+### `Article.svelte`
+
+- [ ] **Step 8: Update vocab and model name references in Article.svelte**
+
+Make these replacements (exact strings as they appear in the file):
+
+| Replace | With |
+|---|---|
+| `GPT-2's vocabulary has <code>50,257</code> unique tokens.` | `GPT-2 Chinese's vocabulary has <code>21,128</code> unique tokens.` |
+| `GPT-2 (small) represents each token in the vocabulary as a 768-dimensional vector` | `GPT-2 Chinese represents each token in the vocabulary as a 768-dimensional vector` |
+| `of shape <code>(50,257, 768)</code>` | `of shape <code>(21,128, 768)</code>` |
+| `The GPT-2 (small) model we are examining consists of` | `The GPT-2 Chinese model we are examining consists of` |
+| `in GPT-2 (small)'s case, into` | `in GPT-2 Chinese's case, into` |
+| `GPT-2 has <code>12</code> self-attention heads` | `GPT-2 Chinese has <code>12</code> self-attention heads` |
+| `final representations into a <code>50,257</code>` | `final representations into a <code>21,128</code>` |
+| `Transformer Explainer features a live GPT-2 (small) model running directly in the browser.` | `Transformer Explainer features a live GPT-2 Chinese model running directly in the browser.` |
+
+### `LogitWeightPopover.svelte`
+
+- [ ] **Step 9: Update dimension labels in LogitWeightPopover.svelte**
+
+Replace all three occurrences of `50,257` in dimension size labels:
+
+Line 363:
+```
+<div class="size">({$modelMeta.dimension}, 50,257)</div>
+```
+→
+```
+<div class="size">({$modelMeta.dimension}, 21,128)</div>
+```
+
+Line 383:
+```
+<div class="size">(50,257)</div>
+```
+→
+```
+<div class="size">(21,128)</div>
+```
+
+Line 408:
+```
+<div class="size">(1, 50,257)</div>
+```
+→
+```
+<div class="size">(1, 21,128)</div>
+```
+
+- [ ] **Step 10: Run type check**
 
 ```bash
 npm run check
@@ -615,11 +799,11 @@ npm run check
 
 Expected: no errors.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
-git add src/utils/textbookPages.ts src/components/InputForm.svelte
-git commit -m "fix: update UI copy for Chinese GPT-2 vocab size and model name"
+git add src/utils/textbookPages.ts src/components/InputForm.svelte src/components/article/Article.svelte src/components/Popovers/LogitWeightPopover.svelte
+git commit -m "fix: update all UI copy for Chinese GPT-2 vocab size and model name"
 ```
 
 ---
@@ -636,13 +820,20 @@ npm run dev
 
 Open `http://localhost:5173` (or the port shown). Check:
 
-1. The example prompts dropdown shows the 6 Chinese prompts (床前明月光… etc.)
+1. The example prompts show the 6 Chinese prompts (床前明月光… etc.)
 2. The app loads without console errors
 3. The model download begins (network tab shows `gpt2-chinese.onnx.part0` etc. being fetched)
-4. Once the model loads, typing a Chinese prompt and pressing enter runs inference
-5. The predicted tokens shown are Chinese characters (not English)
-6. The attention visualization renders correctly
+4. While the model is loading, changing the temperature/sampling slider does not throw a JS error
+5. Once the model loads, entering a Chinese prompt runs inference
+6. The predicted tokens shown are Chinese characters (not English)
+7. The attention visualization renders correctly
 
 - [ ] **Step 3: Verify tokenization has no special tokens**
 
-In the browser console, confirm that encoding `床前明月光` does not produce token ID 101 ([CLS]) as the first token.
+In the browser console, run:
+```javascript
+// tokenizer is available on the window if you expose it, or inspect the first inference run
+// confirm the first token ID is NOT 101 ([CLS]) when encoding Chinese text
+```
+
+Confirm in the token display that the input `床前明月光` shows individual characters as tokens without a leading `[CLS]` token.
