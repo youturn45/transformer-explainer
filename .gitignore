@@ -13,7 +13,11 @@ vite.config.ts.timestamp-*
 yarn.lock
 
 __pycache__
+.venv
 
-params_output
+# Generated ONNX model (too large for git — regenerate via export_to_onnx.py)
+src/utils/model/params_output/
+
+# Raw ONNX chunks are committed to static/model-v2/ intentionally — do not ignore
 
 static/consent-form.pdf
