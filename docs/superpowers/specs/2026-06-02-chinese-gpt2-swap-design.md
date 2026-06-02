@@ -9,6 +9,7 @@
 
 - **Replacement strategy:** Full swap (Option A) — Chinese model replaces English `gpt2` entirely; no model switcher UI needed.
 - **Model loader strategy:** Patch `from_pretrained` in `model.py` (Approach A) — make it accept any HF GPT-2-compatible model by reading config dynamically instead of hardcoding the 4 standard variants.
+- **Cached examples strategy:** Remove the `fakeRunWithCachedData` fallback entirely — the existing cached outputs (`ex0`–`ex4`) are English GPT-2 data and have no value for the Chinese model. The app will start with empty state while the model loads.
 
 ---
 
@@ -51,7 +52,7 @@ AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall')  [@xenova/tran
 
 - Change `modelname` to `"uer/gpt2-chinese-cluecorpussmall"`.
 - Add a sanitized filename variable: `filename = "gpt2-chinese"` used for the ONNX output path.
-- Update `dummy_input` to use valid token IDs from the Chinese vocab (e.g. a short sequence of character IDs within the 21128 vocab range).
+- Update `dummy_input` to use valid Chinese vocab token IDs: `torch.tensor([[101, 1045, 2079, 2025, 3305, 102]])` (valid BertTokenizer IDs within the 21128 vocab range).
 - Update `onnx_model_path` to use `filename` instead of `modelname`.
 
 ### 3. `src/utils/model/chunk.py`
@@ -60,7 +61,12 @@ AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall')  [@xenova/tran
 - Input: `src/utils/model/params_output/gpt2-chinese.onnx`
 - Output: `static/model-v2/gpt2-chinese.onnx.partN`
 
-### 4. `src/store/index.ts`
+### 4. `src/utils/data.ts`
+
+- `attentionTensors` at line 337 hard-codes `modelMetaMap.gpt2.layer_num` and `modelMetaMap.gpt2.attention_head_num`. Change both references to `modelMetaMap['gpt2-chinese']`.
+- `getTokenization` at line 117: change `tokenizer.encode(input)` to `tokenizer.encode(input, { add_special_tokens: false })`. The Chinese model uses a BertTokenizer which adds `[CLS]` (101) and `[SEP]` (102) by default; without this flag, next-token prediction happens after `[SEP]` rather than after the user's visible prompt.
+
+### 5. `src/store/index.ts`
 
 - Remove existing `gpt2`, `gpt2-medium`, `gpt2-large` entries from `modelMetaMap`.
 - Add entry to `modelMetaMap`:
@@ -80,14 +86,21 @@ AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall')  [@xenova/tran
     '黑夜给了我黑色的眼睛，我却用它',
   ];
   ```
+- Update initial `inputText` to `inputTextExample[0]`.
 
-### 5. `src/routes/+page.svelte`
+### 6. `src/routes/+page.svelte`
 
 - Change tokenizer: `AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall')`.
   - `@xenova/transformers` fetches tokenizer files (vocab, config) from HuggingFace CDN at runtime — no offline conversion needed.
+- Remove `fakeRunWithCachedData` call and `cachedDataMap` — the English cached data (`ex0`–`ex4`) is stale and incorrect for the Chinese model. When the model is still loading, display loading state instead.
 - Update `fetchModel`:
   - Change chunk filename from `gpt2.onnx.partN` to `gpt2-chinese.onnx.partN`.
   - Update `chunkNum` to match the actual chunk count after export.
+
+### 7. `src/utils/textbookPages.ts`
+
+- Line 128: update `"GPT-2 (small) has 50,257 token vocabulary"` → `"GPT-2 Chinese has 21,128 token vocabulary"`.
+- Line 380: update `"50,257 numbers—one for each token in GPT-2's vocabulary"` → `"21,128 numbers—one for each token in the vocabulary"`.
 
 ---
 
@@ -121,8 +134,10 @@ AutoTokenizer.from_pretrained('uer/gpt2-chinese-cluecorpussmall')  [@xenova/tran
 1. Patch `model.py` → `from_pretrained`
 2. Update `export_to_onnx.py` → run export to produce `gpt2-chinese.onnx`
 3. Update `chunk.py` → run chunking to produce `static/model-v2/gpt2-chinese.onnx.partN`
-4. Update `store/index.ts` with chunk count, new model meta, and example prompts
-5. Update `+page.svelte` tokenizer and chunk URLs
+4. Update `src/utils/data.ts` — fix `modelMetaMap.gpt2` references and `add_special_tokens`
+5. Update `store/index.ts` with chunk count, new model meta, and example prompts
+6. Update `+page.svelte` — tokenizer, chunk URLs, remove stale cache fallback
+7. Update `src/utils/textbookPages.ts` — fix vocab count strings
 
 ---
 
